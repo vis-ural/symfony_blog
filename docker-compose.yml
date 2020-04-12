@@ -1,0 +1,95 @@
+version: "3"
+
+services:
+
+  php-fpm:
+    build:
+      args:
+        user: visural
+        uid: 1000
+      context: docker/phpfpm
+      dockerfile: Dockerfile
+    container_name: "blog_php"
+    restart: always
+    volumes:
+      - phpdata:/var/www
+      - ./:/var/www/blog:cached
+    env_file:
+      - .env
+    networks:
+      - frontend
+      - backend
+    links:
+      - mysql
+
+  nginx:
+    build:
+      context: docker/nginx
+      dockerfile: Dockerfile
+    container_name: "blog_nginx"
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - nginxdata:/var/log/nginx
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/sites/:/etc/nginx/sites-available
+      - ./docker/nginx/conf.d/:/etc/nginx/conf.d
+      - ./:/var/www/blog:cached
+    networks:
+      - backend
+    depends_on:
+      - php-fpm
+    links:
+      - php-fpm
+
+  mysql:
+    build:
+      context: docker/mariadb
+      dockerfile: Dockerfile
+    container_name: "blog_mysql"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: always
+    environment:
+     MYSQL_ROOT_PASSWORD: Derw45sh84
+     MYSQL_DATABASE: blog_db
+     MYSQL_USER: blog_user
+     MYSQL_PASSWORD: blog_pass
+    networks:
+      - backend
+
+
+
+  mailcatcher:
+    image: schickling/mailcatcher:latest
+    container_name: "blog_mailcatcher"
+    ports:
+      - 1080:1080
+    networks:
+      - backend
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: "blog_phpmyadmin"
+    ports:
+      - 8090:80
+    networks:
+      - backend
+    links:
+      - mysql:db
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+
+volumes:
+  phpdata:
+   driver: local
+  nginxdata:
+    driver: local
+  mysql_data:
+    driver: local
